@@ -1,0 +1,50 @@
+name: Publish Gusu Trails to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore reviewed website source
+        run: unzip -q -o site-source.zip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Restore licensed map data and photos
+        run: unzip -q public-assets.zip
+      - run: npm ci
+      - name: Build the static website
+        run: npm run build:pages
+        env:
+          PAGES_BASE_PATH: /SuzhouMap/
+      - name: Verify the public package
+        run: node --test tests/pages-build.test.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

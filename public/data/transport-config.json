@@ -1,0 +1,15 @@
+{
+  "referenceTime": "工作日上午10点",
+  "walkingSpeedKmh": 4.5,
+  "subwayWaitMinutes": 5,
+  "busWaitMinutes": 10,
+  "suburbanBusWaitMinutes": 15,
+  "conventionalRailBufferMinutes": 30,
+  "highSpeedRailBufferMinutes": 40,
+  "drivingSpeedKmh": {
+    "urban": 32,
+    "suburban": 45,
+    "expressway": 70
+  },
+  "disclaimer": "方案仅在本站已收录的公共交通数据范围内计算，不代表现实世界中的绝对最快方案。"
+}

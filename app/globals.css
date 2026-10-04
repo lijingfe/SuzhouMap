@@ -54,6 +54,7 @@ input:focus-visible,
 }
 
 .map-column {
+  container-type: size;
   position: relative;
   min-width: 0;
   flex: 1;
@@ -264,6 +265,35 @@ input:focus-visible,
   text-align: center;
 }
 
+.map-navigation-controls {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 12;
+  display: flex;
+  gap: 6px;
+}
+
+.map-navigation-controls button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px #0001;
+  cursor: pointer;
+}
+
+.map-navigation-controls button:hover { background: #edf4ef; }
+
+@container (max-height: 240px) {
+  .map-navigation-controls { display: none; }
+}
+
 .explorer-controls {
   max-height: calc(100dvh - 100px);
   overflow-y: auto;
@@ -406,7 +436,9 @@ input:focus-visible,
   top: calc(100% + 6px);
   left: -1px;
   z-index: 30;
-  overflow: hidden;
+  overflow: auto;
+  max-height: 340px;
+  overscroll-behavior: contain;
   width: calc(100% + 2px);
   border: 1px solid #d9dedd;
   border-radius: 8px;
@@ -428,8 +460,10 @@ input:focus-visible,
   text-align: left;
 }
 
-.search-results > button:hover {
-  background: #f5f6f3;
+.search-results > button:hover,
+.search-results > button[aria-selected="true"] {
+  background: #edf4ef;
+  box-shadow: inset 3px 0 var(--green);
 }
 
 .search-results > button > span:first-child {
@@ -493,6 +527,17 @@ input:focus-visible,
   color: var(--muted);
   font-size: 8px;
 }
+
+.quick-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.favorites-panel { padding: 0 12px 12px; }
+.favorites-panel p { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.favorite-place-list { display: grid; max-height: 200px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; }
+.favorite-place-list button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 9px; border: 0; border-bottom: 1px solid var(--line); background: #fff; cursor: pointer; text-align: left; }
+.favorite-place-list button:last-child { border-bottom: 0; }
+.favorite-place-list button:hover { background: #edf4ef; }
+.favorite-place-list strong { font-size: 13px; }
+.favorite-place-list small { flex-shrink: 0; color: var(--muted); font-size: 11px; }
+.favorites-back { margin-top: 8px; padding: 7px 10px; border: 1px solid #cfd6d4; border-radius: 6px; background: #f2f6f4; color: var(--green); font-size: 12px; cursor: pointer; }
 
 .filter-panel {
   padding: 10px 12px 12px;
@@ -961,6 +1006,8 @@ input:focus-visible,
 
 .sidebar-toolbar {
   display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   min-height: 54px;
   align-items: center;
   justify-content: space-between;
@@ -995,6 +1042,8 @@ input:focus-visible,
 .sidebar-toolbar button:hover {
   border-color: #788482;
 }
+
+.sidebar-toolbar .close-all-details { margin-left: auto; min-width: 36px; min-height: 36px; padding: 0; font-size: 24px; color: var(--muted); background: #f5f7f5; }
 
 .sidebar-cards {
   min-height: 0;
@@ -1660,7 +1709,8 @@ input:focus-visible,
   .explorer-controls .result-region { font-size:12px; }
   .map-column .map-zoom-controls { top:max(8px,env(safe-area-inset-top)); right:8px; bottom:auto; }
   .map-column .map-zoom-controls button { width:42px; height:42px; font-size:24px; }
-  .map-column .data-stamp { bottom:0; left:0; max-width:70%; padding:3px 6px; font-size:9px; background:rgba(255,255,255,.8); pointer-events:auto; }
+  .map-column .map-navigation-controls { right:8px; bottom:8px; }
+  .map-column .data-stamp { bottom:0; left:0; max-width:calc(100% - 112px); padding:3px 6px; font-size:9px; background:rgba(255,255,255,.8); pointer-events:auto; }
   .map-column .data-stamp > * { display:none; }
   .map-column .data-stamp > span:nth-of-type(5), .map-column .data-stamp > a { display:block; font-size:9px; }
   .map-column .map-tooltip { display:none; }
@@ -1673,6 +1723,7 @@ input:focus-visible,
   .place-sidebar.sheet-min > :not(.sidebar-toolbar) { display:none; }
   .place-sidebar .sidebar-toolbar { min-height:52px; flex:0 0 auto; padding:6px 8px; flex-wrap:wrap; gap:5px; }
   .place-sidebar .sidebar-toolbar button { min-height:36px; font-size:13px; padding:6px 8px; }
+  .place-sidebar .sidebar-toolbar .close-all-details { min-width:40px; padding:0; font-size:24px; }
   .place-sidebar .sidebar-toolbar div { font-size:12px; }
   .place-sidebar .mobile-sheet-controls { display:flex !important; gap:5px; }
   .place-sidebar .sidebar-cards { overscroll-behavior:contain; }

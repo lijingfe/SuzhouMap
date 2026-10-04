@@ -2,6 +2,7 @@ import type { Place, TransitRoute, TransportConfig } from "../types";
 
 export function normalizeSearchText(value: unknown): string;
 export function matchesPlace(place: Place, query: string): boolean;
+export function searchPlaces(places: Place[], query: string, limit?: number): Place[];
 export function haversineKm(
   a: [number, number],
   b: [number, number],

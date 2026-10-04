@@ -32,6 +32,7 @@ type Props = {
   openSignal: number;
   onToggleFavorite: (placeId: string) => void;
   onClosePlace: (placeId: string) => void;
+  onCloseAll: () => void;
 };
 
 function ImageCarousel({
@@ -246,6 +247,7 @@ export function PlaceSidebar({
   openSignal,
   onToggleFavorite,
   onClosePlace,
+  onCloseAll,
 }: Props) {
   const [mode, setMode] = useState<SidebarMode>("cards");
   const [sheetSize,setSheetSize]=useState<'normal'|'full'|'min'>('normal');
@@ -330,7 +332,7 @@ export function PlaceSidebar({
         </div>
         <div>
           <strong>{places.length}</strong>
-          <span>个已打开地点</span>
+          <span>个地点</span>
         </div>
         {places.length >= 2 && mode === "cards" && (
           <button type="button" onClick={showSelector}>
@@ -342,6 +344,8 @@ export function PlaceSidebar({
             ← 返回地点
           </button>
         )}
+        <button type="button" className="close-all-details" onClick={onCloseAll}
+          aria-label="关闭所有地点详情" title="关闭所有地点详情，保留收藏">×</button>
       </header>
 
       {mode === "cards" && (

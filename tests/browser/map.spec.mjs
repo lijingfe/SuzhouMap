@@ -9,7 +9,7 @@ async function start(page){
 async function openPlace(page,name){
  const expand=page.getByRole('button',{name:'展开地图面板',exact:true});
  if(await expand.isVisible())await expand.click();
- await page.getByRole('textbox',{name:'搜索苏州地点'}).fill(name);
+ await page.getByRole('combobox',{name:'搜索苏州地点'}).fill(name);
  await page.locator('.search-results button').filter({has:page.locator('strong',{hasText:new RegExp('^'+name+'$')})}).click();
  await expect(page.locator('.place-card h2').filter({hasText:new RegExp('^'+name+'$')})).toBeVisible();
 }

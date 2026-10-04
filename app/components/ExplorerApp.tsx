@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ExplorerControls } from "./ExplorerControls";
 import { MapViewport } from "./MapViewport";
 import { PlaceSidebar } from "./PlaceSidebar";
-import { matchesPlace } from "../lib/core.mjs";
+import { searchPlaces } from "../lib/core.mjs";
+import { browserStorage, FAVORITES_KEY, loadFavorites, parseFavoriteIds, saveFavorites } from "../lib/favorites";
 import { assetUrl, isPublicBuild, loadMapJson } from "../lib/assets";
 import type { MapManifest } from '../lib/map-stream';
 import type {
@@ -25,7 +26,6 @@ type AppData = {
   transportConfig: TransportConfig;
 };
 
-const FAVORITES_KEY = "gusu-trails-favorites";
 const INTRO_KEY = "gusu-trails-intro-seen";
 
 export function ExplorerApp() {
@@ -42,15 +42,10 @@ export function ExplorerApp() {
     new Set(),
   );
   const [onlyFavorites, setOnlyFavorites] = useState(false);
-  const [favorites, setFavorites] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const saved = sessionStorage.getItem(FAVORITES_KEY);
-      return saved ? new Set(JSON.parse(saved) as string[]) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  const [favoriteState, setFavoriteState] = useState(() =>
+    loadFavorites(browserStorage("localStorage"), browserStorage("sessionStorage")),
+  );
+  const favorites = favoriteState.ids;
   const [openPlaceIds, setOpenPlaceIds] = useState<string[]>([]);
   const [focusPlaceId, setFocusPlaceId] = useState<string | null>(null);
   const [focusToken, setFocusToken] = useState(0);
@@ -103,13 +98,19 @@ export function ExplorerApp() {
     return () => controller.abort();
   }, [loadAttempt]);
 
+  useEffect(() => {
+    const syncFavorites = (event: StorageEvent) => {
+      if (event.storageArea !== browserStorage("localStorage")) return;
+      if (event.key !== null && event.key !== FAVORITES_KEY) return;
+      setFavoriteState({ids: parseFavoriteIds(event.newValue), persistent: true});
+    };
+    window.addEventListener("storage", syncFavorites);
+    return () => window.removeEventListener("storage", syncFavorites);
+  }, []);
+
   const persistFavorites = (next: Set<string>) => {
-    setFavorites(next);
-    try {
-      sessionStorage.setItem(FAVORITES_KEY, JSON.stringify([...next]));
-    } catch {
-      // The app remains usable when session storage is unavailable.
-    }
+    const persistent = saveFavorites(next, browserStorage("localStorage"), browserStorage("sessionStorage"));
+    setFavoriteState({ids: next, persistent});
   };
 
   const toggleFavorite = (placeId: string) => {
@@ -128,23 +129,24 @@ export function ExplorerApp() {
     return [...options.values()].sort((a, b) => a.ref.localeCompare(b.ref, "zh-CN", { numeric: true }));
   }, [data]);
   const searchResults = useMemo(
-    () =>
-      query
-        ? allPlaces.filter((place) => matchesPlace(place, query)).slice(0, 10)
-        : [],
+    () => searchPlaces(allPlaces, query),
     [allPlaces, query],
+  );
+  const favoritePlaces = useMemo(
+    () => allPlaces.filter(place => favorites.has(place.id)),
+    [allPlaces, favorites],
   );
 
   const visiblePlaces = useMemo(
     () =>
       allPlaces.filter((place) => {
+        if (onlyFavorites) return favorites.has(place.id);
         const libraryVisible =
           (place.library === "core" && place.priority <= 2) ||
           showExtended ||
           temporaryExtended.has(place.id);
         const categoryVisible = selectedCategories.has(place.category);
-        const favoriteVisible = !onlyFavorites || favorites.has(place.id);
-        return libraryVisible && categoryVisible && favoriteVisible;
+        return libraryVisible && categoryVisible;
       }),
     [
       allPlaces,
@@ -288,6 +290,8 @@ export function ExplorerApp() {
           coreCount={coreCount}
           extendedCount={extendedCount}
           favorites={favorites}
+          favoritePlaces={favoritePlaces}
+          favoritesPersistent={favoriteState.persistent}
         />
 
         <div className="data-stamp">
@@ -314,6 +318,7 @@ export function ExplorerApp() {
           openSignal={openSignal}
           onToggleFavorite={toggleFavorite}
           onClosePlace={closePlace}
+          onCloseAll={() => { setOpenPlaceIds([]); setFocusPlaceId(null); }}
         />
       )}
 
@@ -348,7 +353,7 @@ export function ExplorerApp() {
               </li>
               <li>
                 <span>05</span>
-                使用搜索、分类筛选与会话收藏
+                使用搜索、分类筛选与本机收藏（不上传）
               </li>
             </ol>
             <button type="button" className="intro-start" onClick={dismissIntro}>

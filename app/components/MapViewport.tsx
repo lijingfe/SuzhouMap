@@ -474,6 +474,13 @@ export function MapViewport({
     setClusterList(null);
   };
 
+  const resetView = (fullCity: boolean) => {
+    setHover(null);
+    setRegionPopup(null);
+    setClusterList(null);
+    setView(fullCity ? BASE_VIEW : initialViewForDistrict(districts, project, size));
+  };
+
   return (
     <div ref={ref} className="map-viewport">
       <BasemapCanvas
@@ -623,6 +630,11 @@ export function MapViewport({
           −
         </button>
         <span>{view.zoom.toFixed(1)}×</span>
+      </div>
+
+      <div className="map-navigation-controls" aria-label="地图视野快捷操作">
+        <button type="button" onClick={() => resetView(false)} aria-label="回到姑苏，15倍视野" title="回到姑苏区中心 · 15×">姑苏</button>
+        <button type="button" onClick={() => resetView(true)} aria-label="查看苏州全域" title="查看苏州全域 · 1×">全域</button>
       </div>
 
       {hover && (

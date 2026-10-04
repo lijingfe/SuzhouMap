@@ -27,7 +27,7 @@ jobs:
         env:
           PAGES_BASE_PATH: /SuzhouMap/
       - name: Verify the public package
-        run: node --test tests/pages-build.test.mjs tests/map-stream.test.mjs tests/place-content.test.mjs
+        run: node --test tests/pages-build.test.mjs tests/map-stream.test.mjs tests/place-content.test.mjs tests/core.test.mjs tests/favorites.test.mjs
       - name: Check types
         run: npx tsc --noEmit
       - name: Install browser for regression tests

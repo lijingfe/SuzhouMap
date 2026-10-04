@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Category, Place } from "../types";
 
 type Props = {
@@ -20,6 +20,8 @@ type Props = {
   coreCount: number;
   extendedCount: number;
   favorites: Set<string>;
+  favoritePlaces: Place[];
+  favoritesPersistent: boolean;
   transitOptions: Array<{ ref: string; color: string }>;
   selectedTransitRefs: Set<string>;
   onToggleTransit: (ref: string) => void;
@@ -43,6 +45,8 @@ export function ExplorerControls({
   coreCount,
   extendedCount,
   favorites,
+  favoritePlaces,
+  favoritesPersistent,
   transitOptions,
   selectedTransitRefs,
   onToggleTransit,
@@ -51,6 +55,23 @@ export function ExplorerControls({
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const bodyId = useId();
+  const searchId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [searchDismissed, setSearchDismissed] = useState(false);
+  const searchOpen = query.trim().length > 0 && !searchDismissed;
+  const activeResult = Math.min(activeIndex, searchResults.length - 1);
+  useEffect(() => {
+    if (searchOpen && activeResult >= 0) {
+      document.getElementById(`${searchId}-${activeResult}`)?.scrollIntoView({block: "nearest"});
+    }
+  }, [activeResult, searchId, searchOpen, query]);
+  const selectPlace = (place: Place) => {
+    setSearchDismissed(true);
+    onSelectResult(place);
+    inputRef.current?.blur();
+    if (window.matchMedia('(max-width: 1023px)').matches) setCollapsed(true);
+  };
   useEffect(() => {
     const media=window.matchMedia('(max-width: 1023px)');
     const update=()=>setCollapsed(media.matches);
@@ -85,31 +106,61 @@ export function ExplorerControls({
       </header>
 
       <div id={bodyId} className="explorer-controls-body" hidden={collapsed}>
-      <div className="search-shell">
+      <div className="search-shell" onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setSearchDismissed(true);
+      }}>
         <span className="search-symbol">⌕</span>
         <input
+          ref={inputRef}
           value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
+          onChange={(event) => { onQueryChange(event.target.value); setActiveIndex(0); setSearchDismissed(false); }}
+          onFocus={() => setSearchDismissed(false)}
+          onKeyDown={event => {
+            // Enter used to commit Chinese input must not also select a place.
+            if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+            if (event.key === "Escape") { setSearchDismissed(true); event.preventDefault(); }
+            if ((event.key === "ArrowDown" || event.key === "ArrowUp") && searchResults.length) {
+              event.preventDefault();
+              setSearchDismissed(false);
+              const delta = event.key === "ArrowDown" ? 1 : -1;
+              setActiveIndex(searchOpen ? (activeResult + delta + searchResults.length) % searchResults.length : 0);
+            }
+            if (event.key === "Enter" && searchOpen && searchResults[activeResult]) {
+              event.preventDefault(); selectPlace(searchResults[activeResult]);
+            }
+          }}
           placeholder="搜索地点、别名、拼音或标签"
           aria-label="搜索苏州地点"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={searchOpen}
+          aria-controls={searchOpen ? searchId : undefined}
+          aria-activedescendant={searchOpen && activeResult >= 0 ? `${searchId}-${activeResult}` : undefined}
+          autoComplete="off"
+          enterKeyHint="search"
         />
         {query && (
           <button
             type="button"
-            onClick={() => onQueryChange("")}
+            onClick={() => { onQueryChange(""); inputRef.current?.focus(); }}
             aria-label="清空搜索"
           >
             ×
           </button>
         )}
-        {query && (
-          <div className="search-results">
+        {searchOpen && (
+          <div className="search-results" id={searchId} role="listbox" aria-label="地点搜索结果">
             {searchResults.length ? (
-              searchResults.slice(0, 10).map((place) => (
+              searchResults.map((place, index) => (
                 <button
                   key={place.id}
+                  id={`${searchId}-${index}`}
                   type="button"
-                  onClick={() => { onSelectResult(place); if(window.matchMedia('(max-width: 1023px)').matches)setCollapsed(true); }}
+                  role="option"
+                  aria-selected={index === activeResult}
+                  tabIndex={-1}
+                  onMouseDown={event => event.preventDefault()}
+                  onClick={() => selectPlace(place)}
                 >
                   <span>
                     <strong>{place.name}</strong>
@@ -125,7 +176,7 @@ export function ExplorerControls({
                 </button>
               ))
             ) : (
-              <p>没有匹配地点</p>
+              <p role="status">未找到地点，试试简称、拼音或“园林”等标签。</p>
             )}
           </div>
         )}
@@ -135,7 +186,8 @@ export function ExplorerControls({
         <button
           type="button"
           className={filtersOpen ? "is-active" : ""}
-          aria-expanded={filtersOpen}
+          aria-expanded={filtersOpen && !onlyFavorites}
+          disabled={onlyFavorites}
           onClick={() => setFiltersOpen((value) => !value)}
         >
           分类筛选
@@ -145,21 +197,37 @@ export function ExplorerControls({
           type="button"
           className={onlyFavorites ? "is-active" : ""}
           onClick={onToggleOnlyFavorites}
+          aria-pressed={onlyFavorites}
         >
-          ☆ 仅看收藏
+          ☆ 我的收藏
+          <span>{favoritePlaces.length} 处</span>
         </button>
         <button
           type="button"
           className={showExtended ? "is-active" : ""}
           title={showExtended ? "切换为重点地点，减少地图上的标记" : "显示全部已收录地点"}
           aria-pressed={showExtended}
+          disabled={onlyFavorites}
           onClick={onToggleExtended}
         >
           {showExtended ? "显示精简地点" : "显示更多地点"}
         </button>
       </div>
 
-      {filtersOpen && (
+      {onlyFavorites && <section className="favorites-panel" aria-label="本机收藏">
+        <p>{favoritesPersistent ? "保存在本机浏览器，不上传。清理网站数据会移除收藏。" : "浏览器暂不允许持久保存，收藏仅在本次会话中保留。"}</p>
+        {favoritePlaces.length > 0 ? <>
+          <p>显示全部收藏，不受分类和精简模式限制。点击名称定位。</p>
+          <div className="favorite-place-list">
+            {favoritePlaces.map(place => <button type="button" key={place.id} onClick={() => selectPlace(place)}>
+              <strong>{place.name}</strong><small>{place.region}</small>
+            </button>)}
+          </div>
+        </> : <p>还没有收藏。打开地点介绍，点击 ☆ 即可加入。</p>}
+        <button type="button" className="favorites-back" onClick={onToggleOnlyFavorites}>返回地图探索</button>
+      </section>}
+
+      {filtersOpen && !onlyFavorites && (
         <div className="filter-panel">
           <header>
             <span>主要分类</span>
@@ -209,13 +277,13 @@ export function ExplorerControls({
 
       <footer>
         <strong>{visibleCount}</strong>
-        <span>处地点正在显示</span>
+        <span>{onlyFavorites ? "处收藏已启用" : "处地点已启用"}</span>
         <small>
           核心 {coreCount} · 扩展 {extendedCount}
         </small>
       </footer>
 
-      {allHidden && <p className="empty-map-notice">当前已隐藏全部地点</p>}
+      {allHidden && !onlyFavorites && <p className="empty-map-notice">当前已隐藏全部地点，可点击“显示全部”恢复</p>}
       </div>
     </section>
   );

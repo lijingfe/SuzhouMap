@@ -7,6 +7,7 @@ import {
   haversineKm,
   matchesPlace,
   normalizeSearchText,
+  searchPlaces,
 } from "../app/lib/core.mjs";
 import { readFile } from "node:fs/promises";
 
@@ -37,6 +38,23 @@ test("normalizes and matches Chinese aliases, pinyin and tags", () => {
   assert.equal(matchesPlace(place, "dfzm"), true);
   assert.equal(matchesPlace(place, "夜景"), true);
   assert.equal(matchesPlace(place, "不存在"), false);
+});
+
+test("search ranks exact names and aliases before partial names or metadata", () => {
+  const places = [
+    {name: "苏州博物馆西馆", priority: 1},
+    {name: "测试公园", tags: ["苏州博物馆"], priority: 1},
+    {name: "苏州博物馆", priority: 2},
+    {name: "东方之门", aliases: ["秋裤楼"], pinyin: "dongfangzhimen", pinyinInitials: "dfzm"},
+  ];
+  assert.deepEqual(searchPlaces(places, "苏州博物馆").map(p => p.name), ["苏州博物馆", "苏州博物馆西馆", "测试公园"]);
+  for (const query of ["秋裤楼", "DFZM", "dongfang", "东门"]) {
+    assert.equal(searchPlaces(places, query)[0].name, "东方之门");
+  }
+  assert.equal(searchPlaces(places, "苏州", 1).length, 1);
+  assert.deepEqual(searchPlaces(places, "  "), []);
+  assert.deepEqual(searchPlaces(places, "无法找到"), []);
+  assert.equal(matchesPlace({name: "苏州", tags: ["北京"]}, "苏北"), false);
 });
 
 test("calculates stable local distance and driving estimates", () => {

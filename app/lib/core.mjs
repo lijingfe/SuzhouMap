@@ -7,26 +7,43 @@ export function normalizeSearchText(value) {
 export function matchesPlace(place, query) {
   const normalized = normalizeSearchText(query);
   if (!normalized) return true;
+  return placeSearchRank(place, normalized) < Infinity;
+}
 
-  const haystack = [
-    place.name,
-    ...(place.aliases ?? []),
-    place.pinyin,
-    place.pinyinInitials,
-    place.region,
-    ...(place.tags ?? []),
-  ]
-    .map(normalizeSearchText)
-    .join("|");
+function placeSearchRank(place, query) {
+  const name = normalizeSearchText(place.name);
+  const aliases = (place.aliases ?? []).map(normalizeSearchText);
+  const phonetics = [place.pinyin, place.pinyinInitials].map(normalizeSearchText).filter(Boolean);
+  const metadata = [place.region, ...(place.tags ?? [])].map(normalizeSearchText).filter(Boolean);
+  if (name === query) return 0;
+  if (aliases.includes(query)) return 1;
+  if (phonetics.includes(query)) return 2;
+  if (name.startsWith(query)) return 3;
+  if (aliases.some(value => value.startsWith(query))) return 4;
+  if (name.includes(query)) return 5;
+  if (aliases.some(value => value.includes(query))) return 6;
+  if (phonetics.some(value => value.includes(query))) return 7;
+  if (metadata.some(value => value.includes(query))) return 8;
+  // Fuzzy matching stays within one field, never across unrelated tags/aliases.
+  if (query.length >= 2 && [name, ...aliases, ...phonetics, ...metadata].some(value => {
+    let cursor = 0;
+    for (const character of value) {
+      if (character === query[cursor]) cursor++;
+      if (cursor === query.length) return true;
+    }
+    return false;
+  })) return 9;
+  return Infinity;
+}
 
-  if (haystack.includes(normalized)) return true;
-
-  let cursor = 0;
-  for (const character of haystack) {
-    if (character === normalized[cursor]) cursor += 1;
-    if (cursor === normalized.length) return true;
-  }
-  return false;
+export function searchPlaces(places, query, limit = 10) {
+  const normalized = normalizeSearchText(query);
+  if (!normalized) return [];
+  return places.map(place => ({place, rank: placeSearchRank(place, normalized)}))
+    .filter(item => Number.isFinite(item.rank))
+    .sort((a, b) => a.rank - b.rank || (a.place.priority ?? 3) - (b.place.priority ?? 3)
+      || a.place.name.localeCompare(b.place.name, "zh-CN"))
+    .slice(0, limit).map(item => item.place);
 }
 
 export function haversineKm(a, b) {
